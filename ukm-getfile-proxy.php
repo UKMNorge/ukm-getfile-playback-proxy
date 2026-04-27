@@ -102,15 +102,16 @@ add_action('template_redirect', function () {
         HandleAPICallWithAuthorization::sendError('Playback file is not linked to an arrangement.', 400);
     }
 
-    // $handleCall = new HandleAPICallWithAuthorization(
-    //     ['id'],
-    //     [],
-    //     ['GET'],
-    //     false,
-    //     true,
-    //     'arrangement_i_kommune_fylke',
-    //     (string) $arrangementId
-    // );
+    // Sjekker login WP user og tilgang til arrangementet i kommune/fylke
+    $handleCall = new HandleAPICallWithAuthorization(
+        ['id'],
+        [],
+        ['GET'],
+        false,
+        true,
+        'arrangement_i_kommune_fylke',
+        (string) $arrangementId
+    );
 
     // $id = (int) $handleCall->getArgument('id');
 
