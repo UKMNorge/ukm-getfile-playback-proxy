@@ -13,6 +13,8 @@ defined('ABSPATH') || exit;
 use UKMNorge\OAuth2\ArrSys\HandleAPICallWithAuthorization;
 use UKMNorge\Filer\PlaybackFile;
 
+define('UKM_PLAYBACK_PROXY_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET');
+
 require_once('UKM/Autoloader.php');
 
 function ukm_getfile_add_rewrite_rule() {
@@ -39,12 +41,43 @@ register_deactivation_hook(__FILE__, function () {
     flush_rewrite_rules();
 });
 
+function ukm_base64url_encode($data) {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function ukm_create_playback_token($plId, $fileId, $arrangementId, $userId) {
+    $secret = defined('UKM_PLAYBACK_PROXY_SECRET')
+        ? UKM_PLAYBACK_PROXY_SECRET
+        : getenv('UKM_PLAYBACK_PROXY_SECRET');
+
+    if (empty($secret)) {
+        throw new Exception('Missing playback proxy secret');
+    }
+
+    $payload = [
+        'iss' => 'sys.ukm.no',
+        'aud' => 'playback.ukm.no',
+        'scope' => 'playback:file:read',
+        'pl_id' => (int) $plId,
+        'file_id' => (int) $fileId,
+        'arrangement_id' => (int) $arrangementId,
+        'user_id' => (int) $userId,
+        'iat' => time(),
+        'exp' => time() + 60,
+    ];
+
+    $payloadEncoded = ukm_base64url_encode(json_encode($payload));
+    $signature = ukm_base64url_encode(
+        hash_hmac('sha256', $payloadEncoded, $secret, true)
+    );
+
+    return $payloadEncoded . '.' . $signature;
+}
+
 add_action('template_redirect', function () {
     if (get_query_var('ukm_getfile') !== '1') {
         return;
     }
-
-    header('Content-Type: application/json; charset=utf-8');
 
     $fileId = null;
     try {
@@ -69,26 +102,108 @@ add_action('template_redirect', function () {
         HandleAPICallWithAuthorization::sendError('Playback file is not linked to an arrangement.', 400);
     }
 
-    $handleCall = new HandleAPICallWithAuthorization(
-        ['id'],
-        [],
-        ['GET'],
-        false,
-        true,
-        'arrangement_i_kommune_fylke',
-        (string) $arrangementId
-    );
+    // $handleCall = new HandleAPICallWithAuthorization(
+    //     ['id'],
+    //     [],
+    //     ['GET'],
+    //     false,
+    //     true,
+    //     'arrangement_i_kommune_fylke',
+    //     (string) $arrangementId
+    // );
 
-    $id = (int) $handleCall->getArgument('id');
+    // $id = (int) $handleCall->getArgument('id');
 
     /**
      * TODO:
      * - Proxy actual file stream from playbackserver (authenticated as server)
      * - Set correct Content-Type + Content-Disposition for download/inline
      */
-    $handleCall->sendToClient([
-        'success' => true,
-        'id' => $id,
-        'arrangementId' => (int) $arrangementId,
+     
+    $plId = 9412;
+    $playbackFileId = 5483;
+    
+    $token = ukm_create_playback_token(
+        $plId,
+        $playbackFileId,
+        $arrangementId,
+        get_current_user_id()
+    );
+     
+    $url = 'https://playback.ukm.no/getFileAuth.php/' . $plId . '/' . $playbackFileId . '/';
+    
+    $ch = curl_init($url);
+
+    $responseHeaders = [];
+
+    curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($ch, $header) use (&$responseHeaders) {
+        $length = strlen($header);
+        $header = trim($header);
+
+        if ($header !== '' && strpos($header, ':') !== false) {
+            [$name, $value] = explode(':', $header, 2);
+            $responseHeaders[strtolower(trim($name))] = trim($value);
+        }
+
+        return $length;
+    });
+     
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 5,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_SSL_VERIFYPEER => false, // TODO: remove this and use privatekey instead
+        CURLOPT_FAILONERROR => false,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_USERAGENT => 'UKM Getfile Proxy/1.0',
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/octet-stream',
+            'X-UKM-Playback-Token: ' . $token,
+        ],
+    
+        // Testing only:
+        // CURLOPT_SSL_VERIFYPEER => false,
+        // CURLOPT_SSL_VERIFYHOST => false,
     ]);
+     
+    $body = curl_exec($ch);
+    
+    if ($body === false) {
+        $errno = curl_errno($ch);
+        $err = curl_error($ch);
+        $info = curl_getinfo($ch);
+    
+        curl_close($ch);
+    
+        error_log('Playback cURL errno: ' . $errno);
+        error_log('Playback cURL error: ' . $err);
+        error_log('Playback cURL info: ' . print_r($info, true));
+    
+        die('cURL failed: ' . $errno . ' - ' . $err);
+    }
+    
+    $httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
+    
+    curl_close($ch);
+    
+    if ($httpCode < 200 || $httpCode >= 300) {
+        die('Playbackserver returned HTTP ' . $httpCode);
+    }
+    
+    header('Content-Type: ' . $contentType);
+    if (!empty($responseHeaders['content-disposition'])) {
+        header('Content-Disposition: ' . $responseHeaders['content-disposition']);
+    } else {
+        header('Content-Disposition: attachment; filename="playback-file"');
+    }
+
+    header('Content-Length: ' . strlen($body));
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    
+    echo $body;
+    exit;
 });
