@@ -2,7 +2,7 @@
 /* 
 Plugin Name: UKM Getfile Playback Proxy
 Plugin URI: http://www.ukm.no
-Description: UKM Getfile Playback Proxy for å hente playback-filer med autentisering. Bruk sys.ukm.no/getplaybackfile?id=123
+Description: UKM Playback Proxy for hente og sende playback-filer med autentisering.
 Author: UKM Norge / Kushtrim Aliu
 Version: 1.0
 Author URI: http://www.ukm.no
@@ -14,8 +14,10 @@ use UKMNorge\OAuth2\ArrSys\HandleAPICallWithAuthorization;
 use UKMNorge\Filer\PlaybackFile;
 
 define('UKM_PLAYBACK_PROXY_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET');
+define('UKM_PLAYBACK_SEND_PROXY_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET');
 
 require_once('UKM/Autoloader.php');
+require_once(__DIR__ . '/ukm-sendfile-proxy.php');
 
 function ukm_getfile_add_rewrite_rule() {
     add_rewrite_rule(
@@ -34,6 +36,9 @@ add_filter('query_vars', function ($vars) {
 
 register_activation_hook(__FILE__, function () {
     ukm_getfile_add_rewrite_rule();
+    if (function_exists('ukm_sendfile_add_rewrite_rule')) {
+        ukm_sendfile_add_rewrite_rule();
+    }
     flush_rewrite_rules();
 });
 
@@ -122,14 +127,15 @@ add_action('template_redirect', function () {
      */
      
     $plId = 9412;
-    $playbackFileId = 5483;
+    $playbackFileId = 5483; 
     
     $token = ukm_create_playback_token(
-        $plId,
+        -1,
         $playbackFileId,
         $arrangementId,
         get_current_user_id()
     );
+
      
     $url = 'https://playback.ukm.no/getFileAuth.php/' . $plId . '/' . $playbackFileId . '/';
     

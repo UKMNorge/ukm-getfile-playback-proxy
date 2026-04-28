@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UKM Sendfile Proxy Upload Example</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 720px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      max-width: 500px;
+      padding: 0.4rem;
+      margin-top: 0.25rem;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+
+    #status {
+      margin-top: 1rem;
+      white-space: pre-wrap;
+      background: #f4f4f4;
+      padding: 0.75rem;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upload to sendplaybackfile</h1>
+
+  <p>
+    This sends the selected file as raw request body to
+    https://sys.ukm.no/sendplaybackfile.
+  </p>
+
+  <label for="id">File ID (required)</label>
+  <input id="id" type="number" min="1" value="123" />
+
+  <label for="arrangement_id">Arrangement ID (required)</label>
+  <input id="arrangement_id" type="number" min="1" value="456" />
+
+  <label for="pl_id">Playback ID (optional)</label>
+  <input id="pl_id" type="number" value="-1" />
+
+  <label for="file">Select file</label>
+  <input id="file" type="file" />
+
+  <button id="uploadBtn" type="button">Upload file</button>
+
+  <div id="status">Idle</div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+  <script>
+    (function () {
+      var endpoint = 'https://sys.ukm.no/sendplaybackfile';
+
+      function setStatus(text) {
+        $('#status').text(text);
+      }
+
+      $('#uploadBtn').on('click', function () {
+        var fileInput = $('#file')[0];
+        var file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        var id = $('#id').val();
+        var arrangementId = $('#arrangement_id').val();
+        var plId = $('#pl_id').val();
+
+        if (!id || !arrangementId) {
+          setStatus('Missing id or arrangement_id');
+          return;
+        }
+
+        if (!file) {
+          setStatus('Please select a file first');
+          return;
+        }
+
+        var url = endpoint
+          + '?id=' + encodeURIComponent(id)
+          + '&arrangement_id=' + encodeURIComponent(arrangementId)
+          + '&pl_id=' + encodeURIComponent(plId || -1);
+
+        setStatus('Uploading ' + file.name + ' (' + file.size + ' bytes)...');
+
+        $.ajax({
+          url: url,
+          method: 'POST',
+          data: file,
+          processData: false,
+          contentType: file.type || 'application/octet-stream',
+          xhrFields: {
+            withCredentials: true
+          },
+          xhr: function () {
+            var xhr = $.ajaxSettings.xhr();
+            if (xhr.upload) {
+              xhr.upload.addEventListener('progress', function (event) {
+                if (!event.lengthComputable) {
+                  return;
+                }
+                var percent = Math.round((event.loaded / event.total) * 100);
+                setStatus('Uploading... ' + percent + '%');
+              });
+            }
+            return xhr;
+          }
+        }).done(function (response, textStatus, jqXHR) {
+          setStatus('Upload OK. HTTP ' + jqXHR.status + '\n\n' +
+            (typeof response === 'string' ? response : JSON.stringify(response, null, 2)));
+        }).fail(function (jqXHR, textStatus, errorThrown) {
+          var body = jqXHR.responseText || '';
+          setStatus('Upload failed. HTTP ' + jqXHR.status + ' (' + textStatus + ')\n'
+            + (errorThrown || '') + '\n\n' + body);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
