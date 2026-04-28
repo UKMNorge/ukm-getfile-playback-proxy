@@ -5,7 +5,6 @@ defined('ABSPATH') || exit;
 use UKMNorge\OAuth2\ArrSys\HandleAPICallWithAuthorization;
 
 
-
 function ukm_sendfile_add_rewrite_rule() {
 	add_rewrite_rule(
 		'^sendplaybackfile/?$',
@@ -25,7 +24,7 @@ function ukm_sendfile_base64url_encode($data) {
 	return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
 
-function ukm_create_playback_send_token($plId, $fileId, $arrangementId, $userId) {
+function ukm_create_playback_send_token() {
 	$secret = defined('UKM_PLAYBACK_PROXY_SECRET')
 		? UKM_PLAYBACK_PROXY_SECRET
 		: getenv('UKM_PLAYBACK_PROXY_SECRET');
@@ -38,10 +37,6 @@ function ukm_create_playback_send_token($plId, $fileId, $arrangementId, $userId)
 		'iss' => 'sys.ukm.no',
 		'aud' => 'playback.ukm.no',
 		'scope' => 'playback:file:write',
-		'pl_id' => (int) $plId,
-		'file_id' => (int) $fileId,
-		'arrangement_id' => (int) $arrangementId,
-		'user_id' => (int) $userId,
 		'iat' => time(),
 		'exp' => time() + 60,
 	];
@@ -89,7 +84,7 @@ add_action('template_redirect', function () {
 	// 	(string) ($_REQUEST['arrangement_id'] ?? '')
 	// );
 
-	$fileId = 4; //(int) $handleCall->getArgument('id');
+	$fileId = -1;
 	$arrangementId = -1; //(int) $handleCall->getArgument('arrangement_id');
 	$plId = 9412; //isset($_REQUEST['pl_id']) ? (int) $_REQUEST['pl_id'] : -1;
 

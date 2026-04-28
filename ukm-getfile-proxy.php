@@ -82,20 +82,20 @@ add_action('template_redirect', function () {
         return;
     }
 
-    $fileId = null;
+    $playbackId = null;
     try {
-        $fileId = HandleAPICallWithAuthorization::getArgumentBeforeInit('id', 'GET');
+        $playbackId = HandleAPICallWithAuthorization::getArgumentBeforeInit('id', 'GET');
     } catch (Exception $e) {
         HandleAPICallWithAuthorization::sendError('Missing file id.', 400);
     }
 
-    if (empty($fileId)) {
+    if (empty($playbackId)) {
         HandleAPICallWithAuthorization::sendError('Missing file id.', 400);
     }
 
     $playbackFile = null;
     try {
-        $playbackFile = PlaybackFile::getById((int) $fileId);
+        $playbackFile = PlaybackFile::getById((int) $playbackId);
     } catch (Exception $e) {
         HandleAPICallWithAuthorization::sendError($e->getMessage(), 404);
     }

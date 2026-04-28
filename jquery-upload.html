@@ -121,6 +121,8 @@
             return xhr;
           }
         }).done(function (response, textStatus, jqXHR) {
+          alert('a');
+          console.log(response);
           setStatus('Upload OK. HTTP ' + jqXHR.status + '\n\n' +
             (typeof response === 'string' ? response : JSON.stringify(response, null, 2)));
         }).fail(function (jqXHR, textStatus, errorThrown) {
