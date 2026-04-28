@@ -88,12 +88,7 @@ add_action('template_redirect', function () {
 	$arrangementId = -1; //(int) $handleCall->getArgument('arrangement_id');
 	$plId = 9412; //isset($_REQUEST['pl_id']) ? (int) $_REQUEST['pl_id'] : -1;
 
-	$token = ukm_create_playback_send_token(
-		$plId,
-		$fileId,
-		$arrangementId,
-		get_current_user_id()
-	);
+	$token = ukm_create_playback_send_token();
 
 	// Basic default endpoint; can be changed if playback exposes another upload path.
 	$url = 'https://playback.ukm.no/upload/uploadFileAuth.php/' . $plId . '/' . $fileId . '/';
@@ -151,10 +146,6 @@ add_action('template_redirect', function () {
 		$err = curl_error($ch);
 		curl_close($ch);
 		fclose($in);
-
-		error_log('Playback send cURL errno: ' . $errno);
-		error_log('Playback send cURL error: ' . $err);
-
 		HandleAPICallWithAuthorization::sendError('Upload proxy failed: ' . $err, 502);
 	}
 	$httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
