@@ -50,7 +50,7 @@ function ukm_base64url_encode($data) {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
 
-function ukm_create_playback_token($plId, $fileId, $arrangementId, $userId) {
+function ukm_create_playback_token(String $file_location, Int $season) {
     $secret = defined('UKM_PLAYBACK_PROXY_SECRET')
         ? UKM_PLAYBACK_PROXY_SECRET
         : getenv('UKM_PLAYBACK_PROXY_SECRET');
@@ -63,10 +63,8 @@ function ukm_create_playback_token($plId, $fileId, $arrangementId, $userId) {
         'iss' => 'sys.ukm.no',
         'aud' => 'playback.ukm.no',
         'scope' => 'playback:file:read',
-        'pl_id' => (int) $plId,
-        'file_id' => (int) $fileId,
-        'arrangement_id' => (int) $arrangementId,
-        'user_id' => (int) $userId,
+        'file_location' => (string) $file_location,
+        'season' => (int) $season,
         'iat' => time(),
         'exp' => time() + 60,
     ];
@@ -126,14 +124,10 @@ add_action('template_redirect', function () {
      * - Set correct Content-Type + Content-Disposition for download/inline
      */
      
-    $plId = 9412;
-    $playbackFileId = 5483; 
     
     $token = ukm_create_playback_token(
-        -1,
-        $playbackFileId,
-        $arrangementId,
-        get_current_user_id()
+        $playbackFile->getFileLocation(),
+        $playbackFile->getSeason(),
     );
 
      
