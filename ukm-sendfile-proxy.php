@@ -26,9 +26,9 @@ function ukm_sendfile_base64url_encode($data) {
 }
 
 function ukm_create_playback_send_token($plId, $fileId, $arrangementId, $userId) {
-	$secret = defined('UKM_PLAYBACK_SEND_PROXY_SECRET')
-		? UKM_PLAYBACK_SEND_PROXY_SECRET
-		: getenv('UKM_PLAYBACK_SEND_PROXY_SECRET');
+	$secret = defined('UKM_PLAYBACK_PROXY_SECRET')
+		? UKM_PLAYBACK_PROXY_SECRET
+		: getenv('UKM_PLAYBACK_PROXY_SECRET');
 
 	if (empty($secret)) {
 		throw new Exception('Missing playback send proxy secret');
@@ -79,19 +79,19 @@ add_action('template_redirect', function () {
 		HandleAPICallWithAuthorization::sendError('Use POST or PUT for file upload.', 405);
 	}
 
-	$handleCall = new HandleAPICallWithAuthorization(
-		['id', 'arrangement_id'],
-		[],
-		['POST', 'PUT'],
-		false,
-		true,
-		'arrangement_i_kommune_fylke',
-		(string) ($_REQUEST['arrangement_id'] ?? '')
-	);
+	// $handleCall = new HandleAPICallWithAuthorization(
+	// 	[],
+	// 	[],
+	// 	['POST', 'GET'],
+	// 	false,
+	// 	false,
+	// 	'arrangement_i_kommune_fylke',
+	// 	(string) ($_REQUEST['arrangement_id'] ?? '')
+	// );
 
-	$fileId = (int) $handleCall->getArgument('id');
-	$arrangementId = (int) $handleCall->getArgument('arrangement_id');
-	$plId = isset($_REQUEST['pl_id']) ? (int) $_REQUEST['pl_id'] : -1;
+	$fileId = 4; //(int) $handleCall->getArgument('id');
+	$arrangementId = -1; //(int) $handleCall->getArgument('arrangement_id');
+	$plId = 9412; //isset($_REQUEST['pl_id']) ? (int) $_REQUEST['pl_id'] : -1;
 
 	$token = ukm_create_playback_send_token(
 		$plId,
@@ -123,9 +123,9 @@ add_action('template_redirect', function () {
 		return $length;
 	});
 
+
 	$contentType = $_SERVER['CONTENT_TYPE'] ?? 'application/octet-stream';
 	$contentLength = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : null;
-
 	$curlOptions = [
 		CURLOPT_UPLOAD => true,
 		CURLOPT_INFILE => $in,
@@ -145,16 +145,11 @@ add_action('template_redirect', function () {
 			'X-UKM-Playback-Token: ' . $token,
 		],
 	];
-
 	if ($contentLength !== null && $contentLength >= 0) {
 		$curlOptions[CURLOPT_INFILESIZE] = $contentLength;
 	}
-
 	curl_setopt_array($ch, $curlOptions);
 	$responseBody = curl_exec($ch);
-
-    var_dump($responseBody);
-    die;
 
 	if ($responseBody === false) {
 		$errno = curl_errno($ch);
@@ -167,20 +162,16 @@ add_action('template_redirect', function () {
 
 		HandleAPICallWithAuthorization::sendError('Upload proxy failed: ' . $err, 502);
 	}
-
 	$httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 	$responseContentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/json';
 
 	curl_close($ch);
 	fclose($in);
-
 	status_header($httpCode > 0 ? $httpCode : 502);
 	header('Content-Type: ' . $responseContentType);
-
 	if (!empty($responseHeaders['content-disposition'])) {
 		header('Content-Disposition: ' . $responseHeaders['content-disposition']);
 	}
-
 	echo $responseBody;
 	exit;
 });

@@ -137,7 +137,7 @@ add_action('template_redirect', function () {
     );
 
      
-    $url = 'https://playback.ukm.no/getFileAuth.php/' . $plId . '/' . $playbackFileId . '/';
+    $url = 'https://playback.ukm.no/getFileAuth.php/';
     
     $ch = curl_init($url);
 
