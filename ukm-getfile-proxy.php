@@ -13,8 +13,6 @@ defined('ABSPATH') || exit;
 use UKMNorge\OAuth2\ArrSys\HandleAPICallWithAuthorization;
 use UKMNorge\Filer\PlaybackFile;
 
-define('UKM_PLAYBACK_PROXY_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET');
-define('UKM_PLAYBACK_SEND_PROXY_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET');
 
 require_once('UKM/Autoloader.php');
 require_once(__DIR__ . '/ukm-sendfile-proxy.php');
